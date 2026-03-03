@@ -42,6 +42,101 @@ syscall
 
 > **Service 8 note:** Follows UNIX `fgets` semantics. For length `n`, string is at most `n-1` chars; appends newline then null. If `n=1`, input ignored and null written. If `n<1`, nothing written.
 
+### Examples
+
+**Service 1 — Print integer:**
+
+```asm
+.text
+main:
+    li   $t0, 42
+    li   $v0, 1          # print integer
+    move $a0, $t0        # value to print
+    syscall              # outputs: 42
+```
+
+**Service 2 — Print float:**
+
+```asm
+.data
+pi: .float 3.14159
+
+.text
+main:
+    li   $v0, 2          # print float
+    lwc1 $f12, pi        # load float value into $f12
+    syscall              # outputs: 3.14159
+```
+
+**Service 4 — Print string:**
+
+```asm
+.data
+msg: .asciiz "Hello, World!\n"
+
+.text
+main:
+    li   $v0, 4          # print string
+    la   $a0, msg        # address of string
+    syscall              # outputs: Hello, World!
+```
+
+**Service 5 — Read integer:**
+
+```asm
+.data
+prompt: .asciiz "Enter a number: "
+
+.text
+main:
+    li   $v0, 4          # print prompt
+    la   $a0, prompt
+    syscall
+
+    li   $v0, 5          # read integer
+    syscall
+    move $t0, $v0        # $t0 now holds the entered integer
+```
+
+**Service 8 — Read string:**
+
+```asm
+.data
+buffer: .space 64        # reserve 64 bytes for input
+prompt: .asciiz "Enter your name: "
+
+.text
+main:
+    li   $v0, 4
+    la   $a0, prompt
+    syscall
+
+    li   $v0, 8          # read string
+    la   $a0, buffer     # address of buffer
+    li   $a1, 64         # max characters to read
+    syscall              # stores input (up to 63 chars + null) in buffer
+```
+
+**Service 11 — Print character:**
+
+```asm
+.text
+main:
+    li   $v0, 11         # print character
+    li   $a0, 65         # ASCII 65 = 'A'
+    syscall              # outputs: A
+```
+
+**Service 12 — Read character:**
+
+```asm
+.text
+main:
+    li   $v0, 12         # read character
+    syscall
+    move $t0, $v0        # $t0 holds the character read (e.g. ASCII code)
+```
+
 ---
 
 ## Memory & Process
@@ -53,6 +148,43 @@ syscall
 | 17 | Exit2 (with value) | `$a0` = exit code | see note |
 
 > **Service 17 note:** Exit code in `$a0` is ignored when running under the MARS GUI.
+
+### Examples
+
+**Service 9 — Allocate heap memory:**
+
+```asm
+.text
+main:
+    li   $v0, 9          # sbrk: allocate heap memory
+    li   $a0, 100        # number of bytes to allocate
+    syscall
+    move $t0, $v0        # $t0 = address of the 100-byte block
+
+    # Use $t0 as a pointer to store data
+    li   $t1, 255
+    sb   $t1, 0($t0)     # store byte 255 at start of allocated block
+```
+
+**Service 10 — Exit:**
+
+```asm
+.text
+main:
+    # ... program logic ...
+    li   $v0, 10         # exit
+    syscall              # program terminates here
+```
+
+**Service 17 — Exit with code:**
+
+```asm
+.text
+main:
+    li   $v0, 17         # exit2
+    li   $a0, 1          # exit code 1 (e.g. error)
+    syscall
+```
 
 ---
 
@@ -113,6 +245,46 @@ buffer: .asciiz "The quick brown fox jumps over the lazy dog."
 | 30 | System time | — | `$a0` = low-order 32 bits of time (ms since 1 Jan 1970), `$a1` = high-order 32 bits |
 | 32 | Sleep | `$a0` = milliseconds to sleep | — |
 
+### Examples
+
+**Service 30 — System time:**
+
+```asm
+.text
+main:
+    li   $v0, 30         # get system time
+    syscall
+    move $t0, $a0        # $t0 = low-order 32 bits (milliseconds)
+    move $t1, $a1        # $t1 = high-order 32 bits
+
+    # Print the low-order time value
+    li   $v0, 1
+    move $a0, $t0
+    syscall
+```
+
+**Service 32 — Sleep:**
+
+```asm
+.text
+main:
+    li   $v0, 4
+    la   $a0, msg1       # print "Before sleep"
+    syscall
+
+    li   $v0, 32         # sleep
+    li   $a0, 2000       # sleep for 2000 ms (2 seconds)
+    syscall
+
+    li   $v0, 4
+    la   $a0, msg2       # print "After sleep"
+    syscall
+
+.data
+msg1: .asciiz "Before sleep\n"
+msg2: .asciiz "After sleep\n"
+```
+
 ---
 
 ## Alternate Print Formats *(MARS only)*
@@ -122,6 +294,42 @@ buffer: .asciiz "The quick brown fox jumps over the lazy dog."
 | 34 | Print integer in hexadecimal | `$a0` = integer | 8 hex digits, zero-padded |
 | 35 | Print integer in binary | `$a0` = integer | 32 bits, zero-padded |
 | 36 | Print integer as unsigned decimal | `$a0` = integer | unsigned decimal |
+
+### Example
+
+```asm
+.text
+main:
+    li   $t0, 255        # value to display in multiple formats
+
+    li   $v0, 1          # print decimal
+    move $a0, $t0
+    syscall              # outputs: 255
+
+    li   $v0, 11
+    li   $a0, 10         # newline
+    syscall
+
+    li   $v0, 34         # print hexadecimal
+    move $a0, $t0
+    syscall              # outputs: 000000FF
+
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 35         # print binary
+    move $a0, $t0
+    syscall              # outputs: 00000000000000000000000011111111
+
+    li   $v0, 11
+    li   $a0, 10
+    syscall
+
+    li   $v0, 36         # print unsigned decimal
+    li   $a0, -1         # 0xFFFFFFFF as signed = -1, as unsigned = 4294967295
+    syscall              # outputs: 4294967295
+```
 
 ---
 
@@ -137,6 +345,57 @@ buffer: .asciiz "The quick brown fox jumps over the lazy dog."
 
 > Use service 40 to set a seed if replicated sequences are needed. Each generator ID maps to a separate `java.util.Random` instance.
 
+### Examples
+
+**Service 40 + 41 — Seeded random integer:**
+
+```asm
+.text
+main:
+    li   $v0, 40         # set seed
+    li   $a0, 0          # generator ID = 0
+    li   $a1, 12345      # seed value
+    syscall
+
+    li   $v0, 41         # random integer
+    li   $a0, 0          # generator ID = 0
+    syscall
+    move $t0, $a0        # $t0 = random int
+
+    li   $v0, 1          # print it
+    move $a0, $t0
+    syscall
+```
+
+**Service 42 — Random integer in range (e.g. simulating a die roll 1–6):**
+
+```asm
+.text
+main:
+    li   $v0, 42         # random int in range
+    li   $a0, 0          # generator ID = 0
+    li   $a1, 6          # upper bound (exclusive) → range [0, 6)
+    syscall
+    addi $a0, $a0, 1     # shift to [1, 6]
+
+    li   $v0, 1          # print the result
+    syscall
+```
+
+**Service 43 — Random float:**
+
+```asm
+.text
+main:
+    li   $v0, 43         # random float
+    li   $a0, 0          # generator ID = 0
+    syscall              # $f0 = random float in [0.0, 1.0)
+
+    li   $v0, 2          # print float
+    mov.s $f12, $f0
+    syscall
+```
+
 ---
 
 ## MIDI Output *(MARS only)*
@@ -145,6 +404,41 @@ buffer: .asciiz "The quick brown fox jumps over the lazy dog."
 |------|---------|-------------|
 | 31 | MIDI out (non-blocking) | Generates tone and returns immediately |
 | 33 | MIDI out (synchronous) | Generates tone and waits for completion before returning |
+
+### Example
+
+**Service 33 — Play a simple melody (C D E, synchronous):**
+
+```asm
+.text
+main:
+    # Note C (middle C = 60), 500ms, piano (0), volume 80
+    li   $v0, 33
+    li   $a0, 60         # pitch: middle C
+    li   $a1, 500        # duration: 500 ms
+    li   $a2, 0          # instrument: Acoustic Grand Piano
+    li   $a3, 80         # volume
+    syscall
+
+    # Note D
+    li   $v0, 33
+    li   $a0, 62         # pitch: D
+    li   $a1, 500
+    li   $a2, 0
+    li   $a3, 80
+    syscall
+
+    # Note E
+    li   $v0, 33
+    li   $a0, 64         # pitch: E
+    li   $a1, 500
+    li   $a2, 0
+    li   $a3, 80
+    syscall
+
+    li   $v0, 10
+    syscall
+```
 
 **Parameters for services 31 & 33:**
 
@@ -184,6 +478,99 @@ buffer: .asciiz "The quick brown fox jumps over the lazy dog."
 | 57 | Message dialog — float | `$a0`=label, `$f12`=float value | — |
 | 58 | Message dialog — double | `$a0`=label, `$f12`=double value | — |
 | 59 | Message dialog — string | `$a0`=label, `$a1`=second string address | — |
+
+### Examples
+
+**Service 50 — Confirm dialog:**
+
+```asm
+.data
+question: .asciiz "Do you want to continue?"
+yes_msg:  .asciiz "You chose Yes\n"
+no_msg:   .asciiz "You chose No or Cancel\n"
+
+.text
+main:
+    li   $v0, 50         # confirm dialog
+    la   $a0, question
+    syscall              # $a0 = 0 (Yes), 1 (No), 2 (Cancel)
+
+    bne  $a0, $zero, not_yes
+    li   $v0, 4
+    la   $a0, yes_msg
+    syscall
+    j    done
+not_yes:
+    li   $v0, 4
+    la   $a0, no_msg
+    syscall
+done:
+    li   $v0, 10
+    syscall
+```
+
+**Service 51 — Input dialog (integer):**
+
+```asm
+.data
+prompt: .asciiz "Enter an integer:"
+
+.text
+main:
+    li   $v0, 51         # input dialog int
+    la   $a0, prompt
+    syscall
+    # $a0 = value entered, $a1 = status (0 = OK)
+    beq  $a1, $zero, ok  # check status
+    j    error
+ok:
+    move $t0, $a0        # save the integer
+    li   $v0, 1          # print it back
+    move $a0, $t0
+    syscall
+    j    done
+error:
+    li   $v0, 10
+done:
+    li   $v0, 10
+    syscall
+```
+
+**Service 55 — Message dialog (information):**
+
+```asm
+.data
+msg: .asciiz "Operation completed successfully!"
+
+.text
+main:
+    li   $v0, 55         # message dialog
+    la   $a0, msg
+    li   $a1, 1          # type 1 = Information
+    syscall
+
+    li   $v0, 10
+    syscall
+```
+
+**Service 56 — Message dialog with integer value:**
+
+```asm
+.data
+label: .asciiz "Result: "
+
+.text
+main:
+    li   $t0, 42
+
+    li   $v0, 56         # message dialog int
+    la   $a0, label
+    move $a1, $t0        # integer value to display
+    syscall              # shows dialog: "Result: 42"
+
+    li   $v0, 10
+    syscall
+```
 
 **Input dialog status codes (`$a1`):**
 
